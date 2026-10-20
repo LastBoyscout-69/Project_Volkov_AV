@@ -1,0 +1,879 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<title>SchoolPlanner — Документация кода v2.2.1</title>
+<style>
+    body {
+        font-family: -apple-system, "Segoe UI", Arial, sans-serif;
+        max-width: 1000px;
+        margin: 40px auto;
+        padding: 20px;
+        line-height: 1.7;
+        color: #1e293b;
+        background: #f8fafc;
+    }
+    h1 {
+        color: #6366f1;
+        border-bottom: 3px solid #6366f1;
+        padding-bottom: 10px;
+    }
+    h2 {
+        margin-top: 50px;
+        background: #6366f1;
+        color: white;
+        padding: 10px 15px;
+        border-radius: 6px;
+    }
+    h3 {
+        color: #475569;
+        margin-top: 30px;
+        border-left: 4px solid #6366f1;
+        padding-left: 12px;
+    }
+    h4 {
+        color: #64748b;
+        margin-top: 20px;
+    }
+    table {
+        border-collapse: collapse;
+        width: 100%;
+        margin: 15px 0;
+        background: white;
+    }
+    th, td {
+        border: 1px solid #cbd5e1;
+        padding: 8px 12px;
+        text-align: left;
+        vertical-align: top;
+    }
+    th {
+        background: #334155;
+        color: white;
+    }
+    tr:nth-child(even) {
+        background: #f1f5f9;
+    }
+    code {
+        background: #e2e8f0;
+        color: #be185d;
+        padding: 2px 6px;
+        border-radius: 4px;
+        font-family: "Consolas", monospace;
+        font-size: 13px;
+    }
+    pre {
+        background: #1e293b;
+        color: #f1f5f9;
+        padding: 15px;
+        border-radius: 8px;
+        overflow-x: auto;
+        font-family: "Consolas", monospace;
+        font-size: 13px;
+        line-height: 1.5;
+    }
+    pre code {
+        background: none;
+        color: inherit;
+        padding: 0;
+    }
+    .note {
+        background: #fef3c7;
+        border-left: 4px solid #f59e0b;
+        padding: 12px 15px;
+        margin: 15px 0;
+        border-radius: 4px;
+    }
+    .important {
+        background: #fee2e2;
+        border-left: 4px solid #ef4444;
+        padding: 12px 15px;
+        margin: 15px 0;
+        border-radius: 4px;
+    }
+    .function {
+        background: white;
+        border: 1px solid #cbd5e1;
+        border-radius: 8px;
+        padding: 15px 20px;
+        margin: 20px 0;
+    }
+    .function-signature {
+        font-family: "Consolas", monospace;
+        background: #1e293b;
+        color: #22d3ee;
+        padding: 10px 15px;
+        border-radius: 6px;
+        font-size: 14px;
+        margin-bottom: 12px;
+    }
+    .badge-new {
+        background: #10b981;
+        color: white;
+        padding: 2px 8px;
+        border-radius: 12px;
+        font-size: 11px;
+        font-weight: bold;
+        margin-left: 6px;
+    }
+</style>
+</head>
+<body>
+
+<h1>SchoolPlanner — Документация кода</h1>
+
+<p><strong>Версия:</strong> v2.2.1<br>
+<strong>Назначение:</strong> техническое описание модулей, классов и функций проекта.<br>
+<strong>Аудитория:</strong> разработчики, преподаватели программирования.</p>
+
+<div class="note">
+<strong>📖 Как читать этот документ:</strong> описание идёт по модулям. Для каждого модуля указано: назначение, зависимости, классы и функции. В конце — связи между модулями.
+</div>
+
+<hr>
+
+<h2>1. Общая архитектура</h2>
+
+<h3>1.1. Схема модулей</h3>
+
+<pre>
+┌──────────────────────────────────────────────────────────────────┐
+│                        desktop_app.py                            │
+│                    (точка входа, UI, Flet)                       │
+└──┬──────────┬──────────┬──────────┬──────────┬──────────┬────────┘
+   │          │          │          │          │          │
+   ▼          ▼          ▼          ▼          ▼          ▼
+┌────────┐┌────────┐┌────────┐┌────────┐┌────────┐┌──────────┐
+│storage ││models  ││scheduler││advisor ││license ││substitutions│
+│(SQLite)││(данные)││(OR-Tools)││(анализ)││(защита)││(замены)  │
+└───┬────┘└────────┘└────────┘└────────┘└────────┘└──────────┘
+    │
+    ▼
+┌────────┐     ┌──────────────┐     ┌──────────────┐
+│database│     │excel_import  │     │excel_export  │
+│(схема) │     │(импорт)      │     │(экспорт)     │
+└────────┘     └──────────────┘     └──────────────┘
+                       │
+                       ▼
+               ┌──────────────┐
+               │excel_template│
+               │(шаблон)      │
+               └──────────────┘
+</pre>
+
+<h3>1.2. Принципы разделения</h3>
+
+<table>
+<tr><th>Модуль</th><th>Ответственность</th><th>Зависит от</th></tr>
+<tr><td><code>desktop_app.py</code></td><td>UI, обработка событий, координация модулей</td><td>все модули</td></tr>
+<tr><td><code>models.py</code></td><td>Структуры данных (dataclass)</td><td>ничего</td></tr>
+<tr><td><code>database.py</code></td><td>Схема SQLite, соединение, инициализация</td><td><code>sqlite3</code></td></tr>
+<tr><td><code>storage.py</code></td><td>CRUD-обёртки над SQLite</td><td><code>database.py</code></td></tr>
+<tr><td><code>scheduler.py</code></td><td>Составление расписания (OR-Tools)</td><td><code>models.py</code>, <code>ortools</code></td></tr>
+<tr><td><code>advisor.py</code></td><td>Анализ данных, поиск проблем</td><td>ничего</td></tr>
+<tr><td><code>substitutions.py</code></td><td>Поиск замен учителей</td><td>ничего</td></tr>
+<tr><td><code>license.py</code></td><td>Проверка активации, хранение ключа</td><td>стандартные библиотеки</td></tr>
+<tr><td><code>excel_import.py</code></td><td>Импорт из Excel → SQLite</td><td><code>openpyxl</code>, <code>database.py</code></td></tr>
+<tr><td><code>excel_export.py</code></td><td>Экспорт в .xlsx</td><td><code>openpyxl</code></td></tr>
+<tr><td><code>excel_template.py</code></td><td>Генерация шаблона template.xlsx</td><td><code>openpyxl</code></td></tr>
+<tr><td><code>keygen.py</code></td><td>Генерация ключей (приватно)</td><td><code>license.py</code></td></tr>
+</table>
+
+<div class="important">
+<strong>⚠️ Важно:</strong> <code>scheduler.py</code> — единственный модуль, зависящий от OR-Tools. Это позволяет <strong>заменить решатель</strong> без изменения всего остального.
+</div>
+
+<hr>
+
+<h2>2. Модуль <code>models.py</code></h2>
+
+<h3>2.1. Назначение</h3>
+<p>Содержит <strong>пять классов данных</strong> (dataclass), которые используются как <strong>контейнеры</strong> для передачи информации в решатель.</p>
+<p><strong>Зависимости:</strong> только <code>dataclasses</code> и <code>typing</code> из стандартной библиотеки.</p>
+
+<h3>2.2. Класс <code>Teacher</code></h3>
+<div class="function">
+<div class="function-signature">@dataclass
+class Teacher:
+    id: int
+    name: str
+    subjects: List[str] = field(default_factory=list)
+    unavailable_slots: List[tuple] = field(default_factory=list)
+    max_lessons_per_day: int = 6</div>
+<p><strong>Что описывает:</strong> учителя.</p>
+<table>
+<tr><th>Поле</th><th>Тип</th><th>Что значит</th></tr>
+<tr><td><code>id</code></td><td><code>int</code></td><td>Уникальный идентификатор</td></tr>
+<tr><td><code>name</code></td><td><code>str</code></td><td>ФИО</td></tr>
+<tr><td><code>subjects</code></td><td><code>List[str]</code></td><td>Список предметов, которые ведёт</td></tr>
+<tr><td><code>unavailable_slots</code></td><td><code>List[tuple]</code></td><td>Запрещённые слоты: <code>(day, slot)</code> или <code>(day, slot, reason)</code></td></tr>
+<tr><td><code>max_lessons_per_day</code></td><td><code>int</code></td><td>Максимум уроков в день (задел на будущее)</td></tr>
+</table>
+</div>
+
+<h3>2.3. Класс <code>SchoolClass</code></h3>
+<div class="function">
+<div class="function-signature">@dataclass
+class SchoolClass:
+    id: int
+    name: str
+    students: int = 25</div>
+<p><strong>Что описывает:</strong> класс (например, «5А»).</p>
+<table>
+<tr><th>Поле</th><th>Тип</th><th>Что значит</th></tr>
+<tr><td><code>id</code></td><td><code>int</code></td><td>Уникальный идентификатор</td></tr>
+<tr><td><code>name</code></td><td><code>str</code></td><td>Название («5А», «6Б»)</td></tr>
+<tr><td><code>students</code></td><td><code>int</code></td><td>Количество учеников (влияет на выбор кабинета)</td></tr>
+</table>
+</div>
+
+<h3>2.4. Класс <code>Subject</code></h3>
+<div class="function">
+<div class="function-signature">@dataclass
+class Subject:
+    name: str
+    hours_per_week: Dict[str, int] = field(default_factory=dict)
+    teachers: Dict[str, str] = field(default_factory=dict)</div>
+<p><strong>Что описывает:</strong> предмет.</p>
+<table>
+<tr><th>Поле</th><th>Тип</th><th>Что значит</th></tr>
+<tr><td><code>name</code></td><td><code>str</code></td><td>Название предмета</td></tr>
+<tr><td><code>hours_per_week</code></td><td><code>Dict[str, int]</code></td><td>Сколько часов у каждого класса: <code>{"5А": 5, "5Б": 4}</code></td></tr>
+<tr><td><code>teachers</code></td><td><code>Dict[str, str]</code></td><td>Какой учитель ведёт предмет в каждом классе: <code>{"5А": "Иванова А.П."}</code></td></tr>
+</table>
+<div class="note"><strong>Обратите внимание:</strong> поле <code>teachers</code> добавлено в v2.2.0 — чтобы один предмет в разных классах могли вести разные учителя (например, математика в 5А — Петров, в 6А — Соколов).</div>
+</div>
+
+<h3>2.5. Класс <code>Room</code></h3>
+<div class="function">
+<div class="function-signature">@dataclass
+class Room:
+    id: int
+    name: str
+    capacity: int = 30
+    subject_specific: Optional[str] = None</div>
+<p><strong>Что описывает:</strong> кабинет.</p>
+<table>
+<tr><th>Поле</th><th>Тип</th><th>Что значит</th></tr>
+<tr><td><code>id</code></td><td><code>int</code></td><td>Уникальный идентификатор</td></tr>
+<tr><td><code>name</code></td><td><code>str</code></td><td>Название («101», «Физика»)</td></tr>
+<tr><td><code>capacity</code></td><td><code>int</code></td><td>Вместимость (мест)</td></tr>
+<tr><td><code>subject_specific</code></td><td><code>Optional[str]</code></td><td>Если кабинет специализированный — название предмета</td></tr>
+</table>
+</div>
+
+<h3>2.6. Класс <code>Lesson</code></h3>
+<div class="function">
+<div class="function-signature">@dataclass
+class Lesson:
+    day: int
+    slot: int
+    class_name: str
+    subject: str
+    teacher_id: int
+    room_id: int</div>
+<p><strong>Что описывает:</strong> <strong>один урок</strong> в расписании.</p>
+<table>
+<tr><th>Поле</th><th>Тип</th><th>Что значит</th></tr>
+<tr><td><code>day</code></td><td><code>int</code></td><td>День недели (0–4: Пн–Пт)</td></tr>
+<tr><td><code>slot</code></td><td><code>int</code></td><td>Номер урока (0–7)</td></tr>
+<tr><td><code>class_name</code></td><td><code>str</code></td><td>Название класса</td></tr>
+<tr><td><code>subject</code></td><td><code>str</code></td><td>Название предмета</td></tr>
+<tr><td><code>teacher_id</code></td><td><code>int</code></td><td>ID учителя</td></tr>
+<tr><td><code>room_id</code></td><td><code>int</code></td><td>ID кабинета</td></tr>
+</table>
+<div class="note"><strong>Изменение v2.2.0:</strong> <code>slot</code> теперь 0–7 (8 уроков в день), а не 0–6.</div>
+</div>
+
+<hr>
+
+<h2>3. Модуль <code>database.py</code> <span class="badge-new">НОВОЕ в v2.2.0</span></h2>
+
+<h3>3.1. Назначение</h3>
+<p>Слой работы с <strong>SQLite</strong>. Отвечает за создание базы данных и таблиц, получение соединения, инициализацию при первом запуске.</p>
+<p><strong>Зависимости:</strong> <code>sqlite3</code>, <code>os</code>.</p>
+
+<h3>3.2. Константы</h3>
+<table>
+<tr><th>Константа</th><th>Значение</th><th>Что значит</th></tr>
+<tr><td><code>DB_FILE</code></td><td><code>"school.db"</code></td><td>Имя файла базы данных (рядом с программой)</td></tr>
+<tr><td><code>SCHEMA</code></td><td>SQL-скрипт</td><td>Создание всех таблиц</td></tr>
+</table>
+
+<h3>3.3. Таблицы</h3>
+<table>
+<tr><th>Таблица</th><th>Что хранит</th></tr>
+<tr><td><code>school</code></td><td>Информация о школе (одна запись)</td></tr>
+<tr><td><code>teachers</code></td><td>Учителя: id, name, phone, email, notes</td></tr>
+<tr><td><code>subjects</code></td><td>Предметы: id, name, difficulty</td></tr>
+<tr><td><code>classes</code></td><td>Классы: id, name, students, shift</td></tr>
+<tr><td><code>rooms</code></td><td>Кабинеты: id, name, capacity, subject_specific</td></tr>
+<tr><td><code>teacher_subjects</code></td><td>Связь учитель ↔ предмет (много-ко-многим)</td></tr>
+<tr><td><code>teacher_unavailable</code></td><td>Запрещённые слоты учителя: teacher_id, day, slot, reason</td></tr>
+<tr><td><code>lesson_plan</code></td><td>Учебный план: class_id, subject_id, hours, teacher_id, group, paired</td></tr>
+</table>
+
+<h3>3.4. Функции</h3>
+<div class="function">
+<div class="function-signature">def get_connection() -> sqlite3.Connection</div>
+<p><strong>Что делает:</strong> возвращает соединение с БД. Если файла нет — создаст. Включает <code>PRAGMA foreign_keys = ON</code> и <code>row_factory = sqlite3.Row</code>.</p>
+</div>
+<div class="function">
+<div class="function-signature">def init_db() -> None</div>
+<p><strong>Что делает:</strong> создаёт базу данных и таблицы, если их нет.</p>
+</div>
+<div class="function">
+<div class="function-signature">def reset_db() -> None</div>
+<p><strong>Что делает:</strong> полностью удаляет файл БД.</p>
+</div>
+
+<hr>
+
+<h2>4. Модуль <code>storage.py</code></h2>
+
+<h3>4.1. Назначение</h3>
+<p>Отвечает за <strong>чтение</strong> и <strong>запись</strong> данных в SQLite. Все CRUD-операции: добавить/обновить/удалить учителя, класс, предмет, кабинет.</p>
+<p><strong>Зависимости:</strong> <code>database.py</code>, <code>json</code>, <code>os</code>.</p>
+
+<h3>4.2. Функции загрузки</h3>
+<table>
+<tr><th>Функция</th><th>Что делает</th></tr>
+<tr><td><code>load_data()</code></td><td>Загружает все данные из БД: school, teachers, classes, subjects, rooms</td></tr>
+<tr><td><code>_load_teachers(conn)</code></td><td>Учителя + предметы + запрещённые слоты</td></tr>
+<tr><td><code>_load_classes(conn)</code></td><td>Классы</td></tr>
+<tr><td><code>_load_subjects(conn)</code></td><td>Предметы + часы по классам + учителя по классам</td></tr>
+<tr><td><code>_load_rooms(conn)</code></td><td>Кабинеты</td></tr>
+<tr><td><code>_load_school(conn)</code></td><td>Информация о школе</td></tr>
+</table>
+
+<h3>4.3. Функции учителей</h3>
+<table>
+<tr><th>Функция</th><th>Что делает</th></tr>
+<tr><td><code>add_teacher_db(name)</code></td><td>Добавляет учителя, возвращает id</td></tr>
+<tr><td><code>update_teacher_name(id, name)</code></td><td>Обновляет ФИО</td></tr>
+<tr><td><code>delete_teacher_db(id)</code></td><td>Удаляет учителя</td></tr>
+<tr><td><code>add_teacher_subject(id, subject_name)</code></td><td>Добавляет предмет учителю (создаёт предмет, если нужно)</td></tr>
+<tr><td><code>remove_teacher_subject(id, subject_name)</code></td><td>Убирает предмет у учителя</td></tr>
+<tr><td><code>set_teacher_unavailable(id, slots)</code></td><td>Устанавливает список запрещённых слотов</td></tr>
+</table>
+
+<h3>4.4. Функции классов</h3>
+<table>
+<tr><th>Функция</th><th>Что делает</th></tr>
+<tr><td><code>add_class_db(name, students)</code></td><td>Добавляет класс. Если имя занято — добавляет номер</td></tr>
+<tr><td><code>update_class(id, name, students)</code></td><td>Обновляет название и/или число учеников</td></tr>
+<tr><td><code>delete_class_db(id)</code></td><td>Удаляет класс</td></tr>
+</table>
+
+<h3>4.5. Функции предметов</h3>
+<table>
+<tr><th>Функция</th><th>Что делает</th></tr>
+<tr><td><code>add_subject_db(name)</code></td><td>Добавляет предмет</td></tr>
+<tr><td><code>update_subject_name(id, new_name)</code></td><td>Переименовывает предмет</td></tr>
+<tr><td><code>delete_subject_db(id)</code></td><td>Удаляет предмет</td></tr>
+<tr><td><code>set_lesson_hours(class_id, subject_id, hours)</code></td><td>Устанавливает количество часов предмета у класса</td></tr>
+</table>
+
+<h3>4.6. Функции кабинетов</h3>
+<table>
+<tr><th>Функция</th><th>Что делает</th></tr>
+<tr><td><code>add_room_db(name, capacity, subject_specific)</code></td><td>Добавляет кабинет</td></tr>
+<tr><td><code>update_room(id, name, capacity, subject_specific)</code></td><td>Обновляет поля кабинета</td></tr>
+<tr><td><code>delete_room_db(id)</code></td><td>Удаляет кабинет</td></tr>
+</table>
+
+<h3>4.7. Статистика и экспорт</h3>
+<div class="function">
+<div class="function-signature">def get_lesson_plan_stats() -> dict</div>
+<p><strong>Что делает:</strong> возвращает статистику по учебному плану: всего строк, классов с планом, классов всего, часы по классам, максимум часов, классы с перегрузом (&gt; 40), строк с учителем.</p>
+<p><strong>Где используется:</strong> Мастер → Шаг 6 «Учебный план».</p>
+</div>
+<div class="function">
+<div class="function-signature">def export_json(filepath="school_data.json")</div>
+<p><strong>Что делает:</strong> экспорт всех данных в JSON (резервная копия).</p>
+</div>
+
+<hr>
+
+<h2>5. Модуль <code>scheduler.py</code></h2>
+
+<h3>5.1. Назначение</h3>
+<p>Это <strong>сердце программы</strong> — решатель расписания на базе <strong>OR-Tools CP-SAT</strong>.</p>
+<p><strong>Зависимости:</strong> <code>models.py</code>, <code>ortools.sat.python.cp_model</code>.</p>
+
+<h3>5.2. Константы</h3>
+<table>
+<tr><th>Константа</th><th>Значение</th><th>Что значит</th></tr>
+<tr><td><code>DAYS</code></td><td>5</td><td>Количество учебных дней (Пн–Пт)</td></tr>
+<tr><td><code>SLOTS_PER_DAY</code></td><td>8</td><td>Количество уроков в день</td></tr>
+<tr><td><code>MAX_SLOTS</code></td><td>40</td><td>Всего слотов в неделю (5 × 8)</td></tr>
+</table>
+<div class="note"><strong>Изменение v2.2.0:</strong> <code>SLOTS_PER_DAY</code> = 8 (было 7), <code>MAX_SLOTS</code> = 40 (было 35).</div>
+
+<h3>5.3. Класс <code>Scheduler</code></h3>
+<div class="function">
+<div class="function-signature">class Scheduler:
+    def __init__(self, teachers, classes, subjects, rooms):</div>
+<p><strong>Что делает:</strong> принимает <strong>списки объектов</strong> из <code>models.py</code> и сохраняет их в <strong>словари по id</strong> для быстрого поиска.</p>
+</div>
+
+<h3>5.4. Метод <code>_precheck()</code></h3>
+<div class="function">
+<div class="function-signature">def _precheck(self) -> str:</div>
+<p><strong>Что делает:</strong> <strong>быстрая проверка</strong> — возможно ли вообще составить расписание. <strong>До</strong> запуска OR-Tools.</p>
+<p><strong>Проверяет:</strong></p>
+<table>
+<tr><th>№</th><th>Проверка</th></tr>
+<tr><td>1</td><td>Сумма часов класса ≤ 40</td></tr>
+<tr><td>2</td><td>У каждого предмета с часами есть учитель</td></tr>
+<tr><td>3</td><td>Есть хотя бы один кабинет</td></tr>
+</table>
+</div>
+
+<h3>5.5. Метод <code>_find_teacher_for_class()</code> <span class="badge-new">НОВОЕ в v2.2.0</span></h3>
+<div class="function">
+<div class="function-signature">def _find_teacher_for_class(self, subject: str, class_name: str):</div>
+<p><strong>Что делает:</strong> ищет учителя для конкретного класса. Сначала смотрит в <code>Subject.teachers</code> (привязка «класс → учитель»), если нет — берёт первого, кто ведёт предмет.</p>
+<p><strong>Зачем:</strong> чтобы математику в 5А вёл Петров, а в 6А — Соколов.</p>
+</div>
+
+<h3>5.6. Метод <code>_find_rooms_for()</code></h3>
+<div class="function">
+<div class="function-signature">def _find_rooms_for(self, subject: str, class_name: str) -> List[int]:</div>
+<p><strong>Что делает:</strong> возвращает список подходящих кабинетов: сначала специализированные, потом обычные.</p>
+</div>
+
+<h3>5.7. Метод <code>solve()</code> — главный метод</h3>
+<div class="function">
+<div class="function-signature">def solve(self) -> tuple[bool, str]:</div>
+<p><strong>Что делает:</strong> <strong>составляет расписание</strong> через OR-Tools CP-SAT.</p>
+<p><strong>Возвращает:</strong> <code>(True, "OK")</code> при успехе или <code>(False, "сообщение")</code> при ошибке.</p>
+<p><strong>Ограничения модели:</strong></p>
+<table>
+<tr><th>Ограничение</th><th>Что гарантирует</th></tr>
+<tr><td>Каждый урок — ровно в одном слоте</td><td>Нет «потерянных» уроков</td></tr>
+<tr><td>Класс / день / слот: сумма ≤ 1</td><td>Нет двух уроков у класса одновременно</td></tr>
+<tr><td>Учитель / день / слот: сумма ≤ 1</td><td>Учитель не ведёт два урока одновременно</td></tr>
+<tr><td>Класс / предмет / день: сумма ≤ 2</td><td>Не более 2 уроков одного предмета в день</td></tr>
+<tr><td>Запрещённые слоты: x = 0</td><td>Учитель не ведёт в запрещённое время</td></tr>
+</table>
+<p><strong>Параметры решателя:</strong></p>
+<pre><code>solver.parameters.max_time_in_seconds = 10.0
+solver.parameters.stop_after_first_solution = True
+solver.parameters.num_search_workers = 8</code></pre>
+<div class="note"><strong>Изменение v2.2.0:</strong> добавлено ограничение «не более 2 уроков предмета в день», лимит 10 секунд, <code>stop_after_first_solution = True</code>.</div>
+</div>
+
+<div class="important">
+<strong>⚠️ Распределение кабинетов:</strong> происходит <strong>после</strong> решения CP-SAT — жадно, с приоритетом специализированных. Если в слоте все кабинеты заняты — берётся первый попавшийся (это может дать накладку — см. проверку в <code>desktop_app.py</code>).
+</div>
+
+<hr>
+
+<h2>6. Модуль <code>advisor.py</code></h2>
+
+<h3>6.1. Назначение</h3>
+<p><strong>Умный советчик</strong> — анализирует данные <strong>до</strong> составления расписания и <strong>подсказывает</strong>, что не так.</p>
+<p><strong>Зависимости:</strong> только стандартные (никаких внешних библиотек).</p>
+
+<h3>6.2. Константы</h3>
+<table>
+<tr><th>Константа</th><th>Значение</th><th>Что значит</th></tr>
+<tr><td><code>MAX_SLOTS_PER_WEEK</code></td><td>35</td><td>Максимум часов в неделю (5 × 7)</td></tr>
+<tr><td><code>MAX_SLOTS_PER_DAY</code></td><td>7</td><td>Максимум уроков в день</td></tr>
+</table>
+<div class="important"><strong>⚠️ Рассинхрон:</strong> в <code>advisor.py</code> стоит <strong>35 / 7</strong>, а в <code>scheduler.py</code> и <code>desktop_app.py</code> — <strong>40 / 8</strong>. Это баг: советчик ругается на 36+ часов, хотя реально можно 40. Нужно привести к одному значению.</div>
+
+<h3>6.3. Класс <code>Problem</code></h3>
+<div class="function">
+<div class="function-signature">class Problem:
+    def __init__(self, severity, title, details, recommendations):</div>
+<p><strong>Что описывает:</strong> одну <strong>проблему</strong>, найденную в данных.</p>
+<table>
+<tr><th>Поле</th><th>Тип</th><th>Что значит</th></tr>
+<tr><td><code>severity</code></td><td><code>str</code></td><td><code>"error"</code>, <code>"warning"</code>, <code>"info"</code></td></tr>
+<tr><td><code>title</code></td><td><code>str</code></td><td>Краткое название</td></tr>
+<tr><td><code>details</code></td><td><code>str</code></td><td>Подробное описание</td></tr>
+<tr><td><code>recommendations</code></td><td><code>list</code></td><td>Список рекомендаций</td></tr>
+</table>
+</div>
+
+<h3>6.4. Функция <code>analyze(data)</code></h3>
+<div class="function">
+<div class="function-signature">def analyze(data: dict) -> List[Problem]:</div>
+<p><strong>Что делает:</strong> проходит по всем данным и собирает <strong>список проблем</strong>.</p>
+<p><strong>Проверки:</strong></p>
+<table>
+<tr><th>№</th><th>Что проверяет</th><th>Уровень</th></tr>
+<tr><td>1</td><td>Есть ли учителя, классы, предметы, кабинеты</td><td>error</td></tr>
+<tr><td>2</td><td>Есть ли у каждого учителя предметы</td><td>warning</td></tr>
+<tr><td>3</td><td>Сумма часов класса ≤ 35</td><td>error</td></tr>
+<tr><td>4</td><td>У каждого предмета с часами есть учитель</td><td>error</td></tr>
+<tr><td>5</td><td>Нагрузка учителя ≤ 35 слотов</td><td>error</td></tr>
+<tr><td>6</td><td>Хватает ли кабинетов по вместимости</td><td>error</td></tr>
+</table>
+<div class="note"><strong>Умные подсказки:</strong> если нет учителя для предмета — программа <strong>ищет похожих</strong> (по части названия) и предлагает кандидатов.</div>
+</div>
+
+<hr>
+
+<h2>7. Модуль <code>substitutions.py</code> <span class="badge-new">НОВОЕ в v2.2.1</span></h2>
+
+<h3>7.1. Назначение</h3>
+<p>Поиск замен для урока. Простейшая версия — <strong>в памяти, без БД</strong>.</p>
+<p><strong>Зависимости:</strong> ничего (работает с <code>data</code> и <code>schedule</code>).</p>
+
+<h3>7.2. Функция <code>find_substitutes()</code></h3>
+<div class="function">
+<div class="function-signature">def find_substitutes(data, schedule, day, slot, class_name, subject, original_teacher_id)</div>
+<p><strong>Что делает:</strong> возвращает список кандидатов на замену.</p>
+<p><strong>Критерии:</strong></p>
+<ol>
+    <li>Ведёт этот предмет (есть в списке <code>subjects</code>).</li>
+    <li>Свободен в этом слоте (нет своего урока).</li>
+    <li>Слот не в <code>unavailable_slots</code>.</li>
+    <li>Не ведёт уже урок в этом классе в этот день (пометка «уже в классе», не блокирует).</li>
+</ol>
+<p><strong>Ранжирование:</strong> по нагрузке (меньше — лучше) и штрафу за «уже в классе».</p>
+<p><strong>Ограничение:</strong> замены хранятся <strong>в памяти</strong> и сбрасываются после перезапуска программы.</p>
+</div>
+
+<hr>
+
+<h2>8. Модуль <code>license.py</code></h2>
+
+<h3>8.1. Назначение</h3>
+<p>Отвечает за <strong>защиту программы</strong>: проверяет активацию, хранит ключ, генерирует проверочные хеши.</p>
+<p><strong>Зависимости:</strong> <code>os</code>, <code>json</code>, <code>hashlib</code> — стандартные.</p>
+
+<h3>8.2. Константы</h3>
+<table>
+<tr><th>Константа</th><th>Значение</th><th>Что значит</th></tr>
+<tr><td><code>APP_NAME</code></td><td><code>"SchoolPlanner"</code></td><td>Имя программы для пути</td></tr>
+<tr><td><code>LICENSE_FILE</code></td><td><code>"license.json"</code></td><td>Имя файла лицензии</td></tr>
+<tr><td><code>DEMO_MAX_CLASSES</code></td><td>5</td><td>Ограничение демо-версии</td></tr>
+<tr><td><code>SECRET_SALT</code></td><td><code>"SchoolPlanner_2026_SecretKey_v1"</code></td><td><strong>Секретная соль</strong> для генерации ключей</td></tr>
+</table>
+<div class="important"><strong>⚠️ Критично:</strong> <code>SECRET_SALT</code> — единственная <strong>секретная</strong> строка. Если её узнают — смогут генерировать <strong>бесконечные ключи</strong>. Никогда не публикуй!</div>
+
+<h3>8.3. Функции</h3>
+<table>
+<tr><th>Функция</th><th>Что делает</th></tr>
+<tr><td><code>_get_paths()</code></td><td>Список путей: <code>%APPDATA%\SchoolPlanner\license.json</code> и <code>%LOCALAPPDATA%\...</code></td></tr>
+<tr><td><code>_generate_key_from_number(n)</code></td><td>Превращает число в ключ <code>SP-XXXX-XXXX-XXXX</code> по формуле <code>md5(соль + n)</code></td></tr>
+<tr><td><code>is_valid_key(key)</code></td><td>Проверяет ключ перебором <code>n</code> от 1 до 100 000</td></tr>
+<tr><td><code>load_license()</code></td><td>Читает <code>license.json</code> из первого доступного пути</td></tr>
+<tr><td><code>save_license(key)</code></td><td>Сохраняет ключ <strong>во все доступные пути</strong></td></tr>
+<tr><td><code>is_activated()</code></td><td>Быстрая проверка активации</td></tr>
+</table>
+
+<hr>
+
+<h2>9. Модуль <code>excel_import.py</code> <span class="badge-new">НОВОЕ в v2.2.0</span></h2>
+
+<h3>9.1. Назначение</h3>
+<p>Импорт данных из Excel в SQLite. Два этапа: чтение файла и запись в БД.</p>
+<p><strong>Зависимости:</strong> <code>openpyxl</code>, <code>database.py</code>.</p>
+
+<h3>9.2. Функции чтения</h3>
+<table>
+<tr><th>Функция</th><th>Что читает</th></tr>
+<tr><td><code>read_school(ws)</code></td><td>Лист «Школа»</td></tr>
+<tr><td><code>read_teachers(ws)</code></td><td>Лист «Учителя» (ФИО, телефон, email, заметки, предметы через запятую)</td></tr>
+<tr><td><code>read_subjects(ws)</code></td><td>Лист «Предметы» (название, сложность)</td></tr>
+<tr><td><code>read_classes(ws)</code></td><td>Лист «Классы» (название, учеников, смена)</td></tr>
+<tr><td><code>read_rooms(ws)</code></td><td>Лист «Кабинеты» (номер, спец. предмет, мест)</td></tr>
+<tr><td><code>read_lesson_plan(ws)</code></td><td>Лист «Учебный план» (класс, предмет, часов, учитель)</td></tr>
+<tr><td><code>read_excel(filepath)</code></td><td>Все 6 листов → dict</td></tr>
+</table>
+
+<h3>9.3. Функции записи в БД</h3>
+<table>
+<tr><th>Функция</th><th>Что делает</th></tr>
+<tr><td><code>import_school(conn, data)</code></td><td>Обновляет или создаёт запись о школе</td></tr>
+<tr><td><code>import_subjects(conn, data)</code></td><td>Импорт предметов (ключ — название)</td></tr>
+<tr><td><code>import_classes(conn, data)</code></td><td>Импорт классов (ключ — название)</td></tr>
+<tr><td><code>import_rooms(conn, data)</code></td><td>Импорт кабинетов (ключ — номер)</td></tr>
+<tr><td><code>import_teachers(conn, data)</code></td><td>Импорт учителей (ключ — ФИО), обновляет предметы</td></tr>
+<tr><td><code>import_lesson_plan(conn, data)</code></td><td>Импорт учебного плана (ключ — класс + предмет)</td></tr>
+</table>
+
+<h3>9.4. Главная функция <code>import_from_excel(filepath)</code></h3>
+<div class="function">
+<div class="function-signature">def import_from_excel(filepath) -> tuple[bool, str]:</div>
+<p><strong>Что делает:</strong> читает Excel → пишет в SQL → возвращает отчёт.</p>
+<p><strong>Пошагово:</strong></p>
+<ol>
+    <li>Читает Excel через <code>read_excel</code>.</li>
+    <li>Открывает соединение с БД.</li>
+    <li>Очищает таблицы: <code>lesson_plan</code>, <code>teacher_subjects</code>, <code>teacher_unavailable</code>.</li>
+    <li>Импортирует по порядку: школа → предметы → классы → кабинеты → учителя → учебный план.</li>
+    <li>Коммитит и возвращает отчёт: сколько учителей, предметов, классов, кабинетов, строк плана.</li>
+</ol>
+<div class="note"><strong>Важно:</strong> импорт <strong>очищает</strong> <code>lesson_plan</code>, <code>teacher_subjects</code> и <code>teacher_unavailable</code> перед записью. Данные о школе, учителях, классах, предметах, кабинетах — <strong>обновляются</strong> (не удаляются).</div>
+</div>
+
+<hr>
+
+<h2>10. Модуль <code>excel_template.py</code> <span class="badge-new">НОВОЕ в v2.2.0</span></h2>
+
+<h3>10.1. Назначение</h3>
+<p>Генератор шаблона Excel для импорта. Создаёт файл <code>template.xlsx</code> с 6 листами и шапками.</p>
+<p><strong>Зависимости:</strong> <code>openpyxl</code>.</p>
+
+<h3>10.2. Функция <code>create_template(filepath)</code></h3>
+<div class="function">
+<div class="function-signature">def create_template(filepath) -> tuple[bool, str]:</div>
+<p><strong>Что делает:</strong> создаёт шаблон Excel с 6 листами:</p>
+<ul>
+    <li>«Школа» — название, адрес, директор, телефон, email, учебный год</li>
+    <li>«Учителя» — ФИО, телефон, email, заметки, предметы</li>
+    <li>«Предметы» — название, сложность</li>
+    <li>«Классы» — название, учеников, смена</li>
+    <li>«Кабинеты» — номер, спец. предмет, мест</li>
+    <li>«Учебный план» — класс, предмет, часов, учитель</li>
+</ul>
+<p><strong>Возвращает:</strong> <code>(True, "Шаблон сохранён: ...")</code> или <code>(False, "Ошибка...")</code>.</p>
+</div>
+
+<hr>
+
+<h2>11. Модуль <code>excel_export.py</code></h2>
+
+<h3>11.1. Назначение</h3>
+<p>Экспорт расписания и всех данных в Excel (<code>.xlsx</code>).</p>
+<p><strong>Зависимости:</strong> <code>openpyxl</code>.</p>
+
+<h3>11.2. Константы</h3>
+<table>
+<tr><th>Константа</th><th>Значение</th><th>Что значит</th></tr>
+<tr><td><code>SUBJECT_COLORS</code></td><td>список из 12 hex-цветов</td><td>Палитра цветов для предметов</td></tr>
+<tr><td><code>DAY_NAMES</code></td><td><code>["Пн", "Вт", "Ср", "Чт", "Пт"]</code></td><td>Заголовки дней</td></tr>
+</table>
+
+<h3>11.3. Функции</h3>
+<table>
+<tr><th>Функция</th><th>Что делает</th></tr>
+<tr><td><code>subject_color_hex(name, subjects)</code></td><td>Возвращает HEX-цвет предмета по индексу</td></tr>
+<tr><td><code>write_schedule_sheet(ws, class_name, schedule, subjects)</code></td><td>Расписание одного класса на лист</td></tr>
+<tr><td><code>write_teachers_sheet(ws, schedule, teachers, subjects)</code></td><td>Расписание всех учителей на один лист</td></tr>
+<tr><td><code>write_teachers_data_sheet(ws, teachers)</code></td><td>Список учителей (ID, ФИО, предметы)</td></tr>
+<tr><td><code>write_classes_data_sheet(ws, classes)</code></td><td>Список классов (ID, название, учеников)</td></tr>
+<tr><td><code>write_subjects_data_sheet(ws, subjects, classes)</code></td><td>Предметы и часы по классам</td></tr>
+<tr><td><code>write_rooms_data_sheet(ws, rooms)</code></td><td>Список кабинетов</td></tr>
+<tr><td><code>export_to_excel(schedule, data, filepath)</code></td><td>Главная функция экспорта</td></tr>
+</table>
+
+<div class="important"><strong>⚠️ Баг:</strong> в <code>write_schedule_sheet</code> и <code>write_teachers_sheet</code> стоит <code>range(7)</code>, а <code>SLOTS_PER_DAY = 8</code>. Восьмой урок <strong>потеряется</strong> при экспорте. Надо <code>range(8)</code>.</div>
+
+<hr>
+
+<h2>12. Модуль <code>keygen.py</code></h2>
+
+<h3>12.1. Назначение</h3>
+<p><strong>Генератор ключей активации</strong>. Используется <strong>только разработчиком</strong> для выдачи ключей покупателям.</p>
+<p><strong>Зависимости:</strong> <code>license.py</code>, <code>sys</code>.</p>
+<div class="important"><strong>⚠️ Никогда не выкладывай</strong> <code>keygen.py</code> в открытые источники!</div>
+
+<h3>12.2. Функции</h3>
+<table>
+<tr><th>Функция</th><th>Что делает</th></tr>
+<tr><td><code>generate_keys(count, start_from)</code></td><td>Генерирует <code>count</code> ключей, начиная с номера <code>start_from</code></td></tr>
+<tr><td><code>main()</code></td><td>Интерактивный сценарий: спросить количество, начальный номер, вывести, предложить сохранить в <code>keys.txt</code></td></tr>
+</table>
+
+<hr>
+
+<h2>13. Модуль <code>desktop_app.py</code></h2>
+
+<h3>13.1. Назначение</h3>
+<p><strong>Точка входа</strong> приложения. Flet-UI: 7 вкладок, мастер из 7 шагов, отрисовка расписания, замены.</p>
+<p><strong>Зависимости:</strong> <code>flet</code>, все модули проекта.</p>
+
+<h3>13.2. Структура UI</h3>
+<table>
+<tr><th>Вкладка</th><th>Что делает</th></tr>
+<tr><td>📅 Расписание</td><td>Кнопки «Составить» и «Экспорт», отрисовка сетки</td></tr>
+<tr><td>🧙 Мастер</td><td>7 шагов с проверками (Школа → Учителя → Классы → Предметы → Кабинеты → Учебный план → Составление)</td></tr>
+<tr><td>👩‍🏫 Учителя</td><td>Карточки учителей: ФИО, предметы, запрещённые слоты</td></tr>
+<tr><td>🏫 Классы</td><td>Карточки классов: название, учеников</td></tr>
+<tr><td>📚 Предметы</td><td>Карточки предметов: название, часы по классам</td></tr>
+<tr><td>🚪 Кабинеты</td><td>Карточки кабинетов: название, мест, спец. предмет</td></tr>
+<tr><td>❓ Справка</td><td>Правила, ограничения, быстрый старт</td></tr>
+</table>
+
+<h3>13.3. Ключевые функции</h3>
+<table>
+<tr><th>Функция</th><th>Что делает</th></tr>
+<tr><td><code>build_schedule(e)</code></td><td>Главная: анализ → конвертация → <code>Scheduler.solve()</code> → проверка кабинетов → отрисовка</td></tr>
+<tr><td><code>render_schedule()</code></td><td>Перерисовывает расписание по классам и учителям</td></tr>
+<tr><td><code>move_lesson(clicked, day, slot)</code></td><td>Клик по ячейке: выбрать / переместить / поменять</td></tr>
+<tr><td><code>open_substitution_dialog(lesson)</code></td><td>Диалог поиска замены (v2.2.1)</td></tr>
+<tr><td><code>open_slots_dialog(...)</code></td><td>Диалог запрещённых слотов учителя</td></tr>
+<tr><td><code>export_schedule_to_excel(e)</code></td><td>Экспорт в Excel</td></tr>
+<tr><td><code>check_demo_limit()</code></td><td>Проверка демо-лимита (5 классов)</td></tr>
+<tr><td><code>render_combine_problem(message)</code></td><td>Карточка с проблемой составления и кнопками действий</td></tr>
+<tr><td><code>build_warnings_block(warnings)</code></td><td>Сворачивающийся блок предупреждений</td></tr>
+<tr><td><code>render_wizard()</code></td><td>Отрисовка текущего шага мастера</td></tr>
+<tr><td><code>check_wizard_statuses()</code></td><td>Проверка статуса каждого шага</td></tr>
+</table>
+
+<h3>13.4. Проверка накладок кабинетов <span class="badge-new">НОВОЕ в v2.2.1</span></h3>
+<p>В <code>build_schedule</code> после <code>scheduler.solve()</code>:</p>
+<ol>
+    <li>Проходит по <code>editable_schedule</code>.</li>
+    <li>Строит словарь <code>busy_rooms_check[(day, slot, room_id)]</code>.</li>
+    <li>Если ключ уже есть — это <strong>накладка</strong>: два класса в одном кабинете.</li>
+    <li>Формирует <code>room_conflicts</code> — список строк с деталями.</li>
+    <li>Выводит зелёную плашку «Кабинеты в порядке» или красную с количеством и списком.</li>
+</ol>
+
+<hr>
+
+<h2>14. Связи между модулями</h2>
+
+<h3>14.1. Диаграмма вызовов</h3>
+<pre>
+┌─────────────────────────────────────────────────────────────────┐
+│                       desktop_app.py                            │
+│                        (главный UI)                             │
+└──┬──────────┬──────────┬──────────┬──────────┬──────────┬───────┘
+   │          │          │          │          │          │
+   │load_data │Teacher,  │Scheduler │analyze() │is_act()  │find_substitutes()
+   │save_data │Class,    │.solve()  │          │is_valid()│
+   │          │Subject,  │          │          │save_lic()│
+   ▼          ▼          ▼          ▼          ▼          ▼
+┌────────┐┌────────┐┌────────┐┌────────┐┌────────┐┌──────────┐
+│storage ││models  ││scheduler││advisor ││license ││substitutions│
+│(SQLite)││(данные)││(OR-Tools)││(анализ)││(защита)││(замены)  │
+└───┬────┘└────────┘└────────┘└────────┘└────────┘└──────────┘
+    │
+    ▼
+┌────────┐     ┌──────────────┐     ┌──────────────┐
+│database│     │excel_import  │     │excel_export  │
+│(схема) │     │(импорт)      │     │(экспорт)     │
+└────────┘     └──────────────┘     └──────────────┘
+                       │
+                       ▼
+               ┌──────────────┐
+               │excel_template│
+               │(шаблон)      │
+               └──────────────┘
+</pre>
+
+<h3>14.2. Поток данных при составлении расписания</h3>
+<ol>
+    <li>Пользователь нажимает <strong>«Составить расписание»</strong>.</li>
+    <li><code>desktop_app.build_schedule()</code> вызывает <code>advisor.analyze(data)</code>.</li>
+    <li>Если есть <strong>ошибки</strong> — выводятся пользователю, <strong>стоп</strong>.</li>
+    <li>Конвертирует dict → объекты (<code>Teacher</code>, <code>SchoolClass</code>, <code>Subject</code>, <code>Room</code>).</li>
+    <li>Создаёт <code>Scheduler(...)</code> и вызывает <code>solve()</code>.</li>
+    <li><code>Scheduler.solve()</code> строит модель CP-SAT и решает.</li>
+    <li>Возвращает список <code>Lesson</code>.</li>
+    <li><code>desktop_app</code> проверяет накладки кабинетов и отображает расписание.</li>
+    <li>Пользователь может <strong>перемещать</strong> уроки (клик-клик) или <strong>назначить замену</strong> (🔁).</li>
+    <li>При экспорте — <code>excel_export.export_to_excel()</code> создаёт <code>.xlsx</code>.</li>
+</ol>
+
+<h3>14.3. Поток данных при импорте из Excel</h3>
+<ol>
+    <li>Пользователь нажимает «📥 Импорт из Excel» на Шаге 6 мастера.</li>
+    <li><code>desktop_app.do_import()</code> вызывает <code>excel_import.import_from_excel("template.xlsx")</code>.</li>
+    <li><code>read_excel</code> читает 6 листов.</li>
+    <li><code>import_school</code>, <code>import_subjects</code>, <code>import_classes</code>, <code>import_rooms</code>, <code>import_teachers</code>, <code>import_lesson_plan</code> пишут в SQLite.</li>
+    <li>Возвращается отчёт.</li>
+    <li><code>desktop_app</code> показывает snackbar и перерисовывает вкладки.</li>
+</ol>
+
+<h3>14.4. Поток данных при активации</h3>
+<ol>
+    <li>При запуске <code>desktop_app.main()</code> вызывает <code>license.is_activated()</code>.</li>
+    <li><code>license.load_license()</code> читает <code>license.json</code> из APPDATA/LOCALAPPDATA.</li>
+    <li>Если ключ есть и валиден — <strong>полная версия</strong>.</li>
+    <li>Если нет — <strong>демо-версия</strong> с баннером.</li>
+    <li>Пользователь нажимает <strong>«🔑 Ввести ключ»</strong>.</li>
+    <li><code>license.is_valid_key()</code> проверяет ключ (перебор до 100000).</li>
+    <li><code>license.save_license()</code> сохраняет ключ <strong>в оба пути</strong>.</li>
+</ol>
+
+<hr>
+
+<h2>15. Ключевые технические решения</h2>
+
+<h3>15.1. Почему OR-Tools, а не backtracking</h3>
+<table>
+<tr><th>Критерий</th><th>Backtracking</th><th>OR-Tools CP-SAT</th></tr>
+<tr><td>Скорость (7 классов)</td><td>минуты</td><td>секунды</td></tr>
+<tr><td>Скорость (20 классов)</td><td>часы / зависание</td><td>10–60 секунд</td></tr>
+<tr><td>Оптимизация</td><td>не умеет</td><td>умеет (минимизация окон)</td></tr>
+<tr><td>Параллелизм</td><td>нет</td><td>да</td></tr>
+</table>
+
+<h3>15.2. Почему SQLite, а не JSON <span class="badge-new">НОВОЕ в v2.2.0</span></h3>
+<ul>
+    <li><strong>Надёжность</strong> — транзакции, целостность, внешние ключи.</li>
+    <li><strong>Скорость</strong> — индексы, быстрый поиск.</li>
+    <li><strong>Масштабируемость</strong> — можно хранить тысячи записей.</li>
+    <li><strong>Один файл</strong> — <code>school.db</code>, легко перенести.</li>
+    <li><strong>Минус:</strong> нельзя править вручную, как JSON.</li>
+</ul>
+
+<h3>15.3. Почему офлайн-проверка ключа</h3>
+<ul>
+    <li><strong>Нет сервера</strong> — не надо платить.</li>
+    <li><strong>Работает без интернета</strong>.</li>
+    <li><strong>Быстро</strong> — проверка за миллисекунды.</li>
+    <li><strong>Минус:</strong> ключ можно вычислить, если знать соль.</li>
+</ul>
+
+<h3>15.4. Почему Flet, а не Tkinter</h3>
+<table>
+<tr><th>Критерий</th><th>Tkinter</th><th>Flet</th></tr>
+<tr><td>Внешний вид</td><td>устаревший</td><td>современный</td></tr>
+<tr><td>Кроссплатформенность</td><td>Windows/Linux/Mac</td><td>+ Android/iOS/Web</td></tr>
+<tr><td>Сложность вёрстки</td><td>высокая</td><td>низкая</td></tr>
+<tr><td>Размер .exe</td><td>~20 МБ</td><td>~150 МБ</td></tr>
+</table>
+<div class="note"><strong>Компромисс:</strong> Flet даёт <strong>красивый UI</strong> и <strong>кроссплатформенность</strong>, но <strong>.exe больше</strong> из-за встроенного движка Flutter.</div>
+
+<hr>
+
+<h2>16. Известные ограничения и баги (v2.2.1)</h2>
+
+<table>
+<tr><th>№</th><th>Проблема</th><th>Где</th><th>Статус</th></tr>
+<tr><td>1</td><td>Двойной <code>@dataclass</code> перед <code>Subject</code></td><td><code>models.py</code></td><td>Исправить</td></tr>
+<tr><td>2</td><td><code>unavailable_slots</code> не учитываются в CP-SAT</td><td><code>scheduler.py</code></td><td>Исправить</td></tr>
+<tr><td>3</td><td>Кабинеты распределяются после, без проверки занятости</td><td><code>scheduler.py</code></td><td>Исправить</td></tr>
+<tr><td>4</td><td><code>MAX_SLOTS_PER_WEEK = 35</code> вместо 40</td><td><code>advisor.py</code></td><td>Исправить</td></tr>
+<tr><td>5</td><td><code>range(7)</code> в экспорте вместо 8</td><td><code>excel_export.py</code></td><td>Исправить</td></tr>
+<tr><td>6</td><td><code>room_id</code> в экспорте вместо имени</td><td><code>excel_export.py</code></td><td>Исправить</td></tr>
+<tr><td>7</td><td>Замены не сохраняются в БД</td><td><code>substitutions.py</code></td><td>Планируется</td></tr>
+<tr><td>8</td><td>Нет причины замены и истории</td><td><code>substitutions.py</code></td><td>Планируется</td></tr>
+<tr><td>9</td><td><code>app.py</code> (Streamlit) устарел</td><td><code>app.py</code></td><td>Удалить</td></tr>
+</table>
+
+<hr>
+
+<h2>17. Заключение</h2>
+
+<p>Проект <strong>SchoolPlanner v2.2.1</strong> демонстрирует:</p>
+
+<ul>
+    <li><strong>Разделение ответственности</strong> — 12 модулей, каждый за своё.</li>
+    <li><strong>Использование промышленного решателя</strong> — OR-Tools CP-SAT.</li>
+    <li><strong>Работу с SQLite</strong> — надёжное хранение данных.</li>
+    <li><strong>Импорт и экспорт Excel</strong> — <code>openpyxl</code>.</li>
+    <li><strong>Замены учителей</strong> — поиск в один клик.</li>
+    <li><strong>Проверку накладок кабинетов</strong> — автоматический контроль.</li>
+    <li><strong>Защиту ПО</strong> — офлайн-лицензия с MD5.</li>
+    <li><strong>Современный UI</strong> — Flet (Flutter под капотом).</li>
+    <li><strong>Сборку в .exe</strong> — PyInstaller + Flet pack.</li>
+</ul>
+
+<p>Код <strong>структурирован</strong>, <strong>документирован</strong> и <strong>готов к расширению</strong>.</p>
+
+<div class="note"><strong>📌 Конец документа.</strong></div>
+
+</body>
+</html>
